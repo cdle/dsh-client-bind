@@ -1,0 +1,19 @@
+# dsh bundle patch: insert the client-bind plugin and seed its composition
+# config (the settings namespace's base layer). Everything here is user-editable
+# in the Plugins settings card afterwards (the user layer overrides this base).
+#
+# token: the deployment-wide access token — OPTIONAL. When set, every entry
+#   URL must carry ?token=<it> and mismatches are rejected. When left empty,
+#   no auth gate applies and machines are selected purely by machine=<alias>.
+#   Generate one, e.g.:
+#   node -e 'console.log(require("crypto").randomBytes(12).toString("hex"))'
+# machines: bound by ssh alias — the entry URL picks one via ssh=<sshAlias>.
+#   Leave empty and manage machines in the Plugins settings card instead.
+- insert:
+    - id: client-bind
+      name: dsh-client-bind
+- id: client-bind
+  config:
+    token: ""
+    machines: []
+    injectTemplate: ""
