@@ -1,67 +1,97 @@
 # dsh-client-bind
 
-Conversation-level machine binding for [DeepSeek Harness](https://www.npmjs.com/package/@deepseek-ai/dsh) web.
-每个对话在首个 agent 步骤被服务端**确定性**地绑定到一台访客机器 —— 不靠模型推理，不做 IP 猜测。
+[简体中文](./README.md) | [English](./README.en.md)
 
-## How it works
+令牌门禁的对话级机器绑定插件，适用于 [DeepSeek Harness](https://www.npmjs.com/package/@deepseek-ai/dsh) Web GUI。
 
-1. **Token = machine identity.** Each machine has a user-defined complex token (treat it as a capability
-   token). The machine's browser entry URL carries it: `http://<host>:3080/?token=<token>&ssh=<sshAlias>`.
-   An injected index script stores the token in `localStorage` and pings `GET /client-bind/hello?token=<token>&ssh=<sshAlias>`
-   every 30s (self-hosted beacon — no upstream patches, no frontend changes).
-2. **Strict match, no fallback.** At the first agent step the plugin reads the latest beacon state and
-   matches the token against the machine table **exactly**. Unknown token / no beacon / headless → no
-   injection. A special `guestToken` authenticates the visit without binding any machine.
-3. **Injection rides the durable channel.** The rendered notice (ssh alias, username, per-machine agent
-   notes, source IP) is spliced into the step's message batch as a plugin-sourced durable user message —
-   same channel as AGENTS.md, replayed after compaction, inherited by sub-agents.
-4. **Settings UI.** The browser half registers a card under *Settings → Plugins → client-bind*: machines
-   CRUD, token regeneration, per-machine agent notes, injection template override, and **ssh keypair
-   generation** — the host runs `ssh-keygen -t ed25519`, shows the public key for copying to the target
-   machine's `authorized_keys`, and maintains a marked `~/.ssh/config` alias block (`Host <alias>` +
-   `IdentityFile`). The agent is instructed to access machines via the alias first.
+访客通过带参数的入口 URL 打开 GUI：`?ssh=<ssh 别名>` 选择目标机器，配置了部署令牌时还须携带 `?token=<令牌>` 通过鉴权。插件在对话首回合由**服务端确定性代码**注入绑定提示：已绑定机器的详情（ssh 别名、登陆用户名、机器说明等），外加其余已配置机器的清单——严格匹配、无 IP 反解兜底。
 
-## Install
+## 特性
+
+- **令牌门禁（可选）**：配置部署令牌后，入口 URL 必须携带匹配的 `?token=`；留空则不鉴权
+- **ssh 别名选机器**：与 `~/.ssh/config` 天然对齐，agent 优先用别名访问机器
+- **每机器 agent 说明**：系统、shell、包管理器、注意事项——随绑定注入给 agent
+- **全量机器注入**：除绑定机器外，其余已配置机器也随首回合一并注入，agent 可按名称/别名切换访问
+- **配置卡片**：设置 → 插件内管理机器（增删改、令牌重生成、复制入口 URL）
+- **一键密钥**：ed25519 密钥对生成 + 自动维护 `~/.ssh/config` 别名块（仅动自己标记的块，不碰用户手写的 Host）
+- **自托管信标**：心跳脚本经 index 注入下发，浏览器每 30 秒上报，无需任何上游补丁
+- **主题自适应**：卡片全部使用 `--dsw-alias-*` 设计令牌，明暗主题自动跟随
+
+## 安装
+
+**方式一 · git clone**（推荐，便于跟随更新）：
 
 ```bash
-pnpm --dir ~/.dsh/profiles/web add dsh-client-bind
-```
-or add `"dsh-client-bind"` to the profile's `dsh.profile.bundles`. Seed machines via the bundle's
-`cordis.patch.yml` config row (composition base) or entirely through the settings card (user layer).
-
-## Security notes
-
-- The token travels in the URL/Referer on your LAN; treat the deployment as trust-the-LAN (same as the
-  harness web itself). Tokens prevent accidental cross-machine binding and casual impersonation, not a
-  determined network attacker.
-- `/client-bind/keygen` is an unauthenticated host action by design (it only generates a keypair for a
-  token already in your config). Gate your LAN accordingly.
-- Secret material (sudo passwords etc.) belongs in the per-machine **notes** only if you accept that it
-  is injected into every conversation bound to that machine.
-
-## Layout
-
-```
-lib/index.js   host half: settings namespace, beacon + keygen routes, index script, pre-step injection
-dist/client.js browser half: Plugins-settings card (ModuleLoader-wrapped, no build step)
-cordis.patch.yml  bundle insertion + composition base config
+cd <profile>/node_modules    # 通常是 /root/.dsh/profiles/web/node_modules
+git clone https://github.com/cdle/dsh-client-bind.git
 ```
 
-MIT
+然后把 `"dsh-client-bind"` 加入 profile manifest（`<profile>/package.json`）：
 
-## Plugin development contract (hard-won lessons)
+```json
+{
+  "dsh": {
+    "profile": {
+      "bundles": [ "...", "dsh-client-bind" ]
+    }
+  }
+}
+```
 
-A dual-face dsh plugin must satisfy all four, or half of it silently fails:
+**方式二 · npm 包**（待发布后）：`pnpm add dsh-client-bind` 或经插件市场安装。
 
-1. **Client entry discovery**: expose the browser half as `"exports": { "./client": "./dist/client.js" }`.
-   The `dsh-client-modules` scanner serves `/plugins/<id>/client.js` only for packages
-   resolving this subpath. Host half live + card missing = usually this.
-2. **Settings namespace**: the inject callback receives the CONTEXT, not the service —
-   `ctx.inject(["settings"], (sctx) => { scope = sctx.settings.register(ns, Config, { base: config }) })`.
-   Calling `.register` on the bare argument throws and the namespace never appears in
-   `settings.describe`, so the settings tab renders nothing for your card.
-3. **Index injection rows**: the emit table wants `{ kind: "script", placement, text }` —
-   `type` throws during index render and every page turns 400 (boot still "succeeds").
-4. **Card styling**: use the `--dsw-alias-*` design tokens (`label-primary/secondary/tertiary`,
-   `border-l2`, `bg-layer-3`, `brand-primary`, `label-error`), 13px body / 12px meta, radius 8.
-   No hardcoded colors — they break in light/dark themes.
+重启 dsh 生效。
+
+## 配置
+
+两处都可以：bundle patch 种子（部署即生效）或设置 → 插件 → **机器绑定** 卡片（用户层覆盖种子）。
+
+```yaml
+- insert:
+    - id: client-bind
+      name: dsh-client-bind
+- id: client-bind
+  config:
+    token: ""            # 部署级访问令牌：可选；留空不鉴权
+    machines: []         # 机器列表：留空后在卡片里添加
+```
+
+每台机器的字段：
+
+| 字段 | 说明 |
+|---|---|
+| 机器名称 | 注入给 agent 展示 |
+| ssh 别名 | **机器身份** = URL 里 `ssh=` 的值；也是生成 `~/.ssh/config` 块的 Host |
+| 登陆用户名 | 注入给 agent |
+| IP | 仅展示，不参与识别 |
+| 给 agent 的说明 | 系统、shell、包管理器、sudo 注意事项等 |
+
+生成部署令牌：`node -e 'console.log(require("crypto").randomBytes(12).toString("hex"))'`
+
+## 使用
+
+1. 设置 → 插件 → **机器绑定**，配置令牌（可选）并添加机器
+2. 每台机器点 **复制入口 URL**，形如 `http://<host>:3080/?token=<令牌>&ssh=<别名>`
+3. 在该机器的浏览器打开入口 URL
+4. 开新对话——首回合即出现绑定提示（已绑定机器详情 + 其余已配置机器清单）；此后"本机/这台电脑/我电脑"一律指该机器，提到其他机器则经其 ssh 别名访问，命令按目标机器的系统语法执行
+5. 需要免密 ssh 时点 **🔑 生成密钥**，把公钥追加到目标机器的 `authorized_keys`
+
+## 安全说明
+
+- 令牌防的是**误绑与冒充**，不是加密：局域网内拿到 URL 即可进入对应绑定
+- `notes` 会注入到每个绑定该机器的对话—— secrets（sudo 密码等）放这里的前提是你接受这一点
+- 令牌经 localStorage 持久化，仅在该浏览器后续访问时自动上报
+- 插件不监听公网；部署是否暴露公网由你的 dsh 配置决定
+
+## 插件开发契约（四条踩坑实录）
+
+给要写 dsh 双面插件的人：
+
+1. **客户端入口收录**：必须 `"exports": { "./client": "./dist/client.js" }`。`dsh-client-modules` 只服务能解析该子路径的包。宿主半区正常但卡片不出现，多半是这条。
+2. **settings 注册**：`ctx.inject(["settings"], (sctx) => { scope = sctx.settings.register(ns, Config, { base: config }) })`——回调参数是**上下文**，服务在 `.settings` 上。直接在参数上调 `.register` 会抛错且命名空间静默消失。
+3. **index 注入行**：字段是 `kind: "script"` 不是 `type`——写错会让 index 渲染抛异常、全站 400，而 boot 依然"成功"。
+4. **卡片样式**：只用 `--dsw-alias-*` 令牌（`label-primary/secondary/tertiary`、`border-l2`、`bg-layer-3`、`brand-primary`、`label-error`），13px 正文 / 12px 次要、圆角 8。硬编码颜色必破明暗主题。
+
+## License
+
+[MIT](./LICENSE)

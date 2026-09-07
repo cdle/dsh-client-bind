@@ -26,7 +26,6 @@ window.__ModuleLoader__.load({
       var machines = Array.isArray(stored.machines) ? stored.machines : [];
       return {
         token: typeof stored.token === "string" ? stored.token : "",
-        injectTemplate: typeof stored.injectTemplate === "string" ? stored.injectTemplate : "",
         machines: machines.map(function (m) {
           m = m || {};
           return {
@@ -121,8 +120,6 @@ window.__ModuleLoader__.load({
         var run = function () {
           return scope.set("token", value.token).then(function () {
             return scope.set("machines", value.machines);
-          }).then(function () {
-            return scope.set("injectTemplate", value.injectTemplate);
           });
         };
         run().then(function () {
@@ -230,20 +227,6 @@ window.__ModuleLoader__.load({
 
       children.push(React.createElement("div", { key: "add" },
         React.createElement("button", { style: { font: "inherit", fontSize: 12, padding: "8px 10px", borderRadius: 8, cursor: "pointer", border: "1px dashed var(--dsw-alias-border-l2)", background: "none", color: "var(--dsw-alias-label-secondary)", width: "100%" }, onClick: addRow }, "+ 添加机器")));
-
-      children.push(React.createElement("div", { key: "tpl", style: { marginTop: 12 } },
-        React.createElement("div", { style: { fontSize: 12, marginBottom: 4, color: "var(--dsw-alias-label-secondary)" } },
-          "注入模板（占位符 {{label}} {{sshAlias}} {{username}} {{ip}} {{notes}} {{ts}}；值为空的行整行省略；留空用内置默认）"),
-        React.createElement("textarea", {
-          style: Object.assign({}, inputStyle, { minHeight: 90, fontFamily: "monospace", fontSize: 12, resize: "vertical" }),
-          value: value.injectTemplate,
-          placeholder: "（内置默认模板）",
-          onChange: function (e) {
-            var next = JSON.parse(JSON.stringify(value));
-            next.injectTemplate = e.target.value;
-            touch(next);
-          }
-        })));
 
       children.push(React.createElement("div", { key: "actions", style: { display: "flex", alignItems: "center", gap: 10, marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--dsw-alias-border-l2)" } },
         React.createElement("span", { style: Object.assign({}, muted, { flex: 1, minWidth: 0 }) }, readonly ? "当前连接不可写（设置域未就绪）" : (msg || "")),
