@@ -13,7 +13,7 @@ Visitors open the GUI through a parameterized entry URL: `?ssh=<sshAlias>` selec
 - **Per-machine agent notes**: OS, shell, package manager, caveats — injected with every bound conversation
 - **Full roster injection**: besides the bound machine, every other configured machine is injected at the first step, so the agent can switch targets by name/alias
 - **Settings card**: manage machines (CRUD, token regeneration, copy entry URL) under Settings → Plugins
-- **One-click keys**: ed25519 keypair generation plus automatic `~/.ssh/config` alias-block management (only touches blocks it owns, never user-written Host entries)
+- **Public keys served as-is**: the card lists existing `~/.ssh` public keys for one-click copy — no key generation, no ssh config writes
 - **Self-hosted beacon**: the heartbeat script ships via index injection and reports every 30s — zero upstream patches
 - **Theme aware**: the card uses only `--dsw-alias-*` design tokens; light/dark handled for you
 
@@ -74,7 +74,7 @@ Generate a deployment token: `node -e 'console.log(require("crypto").randomBytes
 2. Hit the per-machine **copy entry URL** button — you get `http://<host>:3080/?token=<token>&ssh=<alias>`
 3. Open that URL in the machine's browser
 4. Start a new conversation — the binding notice appears at the first step (bound machine details plus the roster of other configured machines); from then on "this machine" means that box, other machines are reached via their ssh aliases, and commands follow the target's OS syntax
-5. For passwordless ssh hit the per-machine **generate key** button and append the public key to the target machine's `authorized_keys`
+5. For passwordless ssh hit **fetch public keys** and append the matching key to the target machine's `authorized_keys`
 
 ## Security notes
 
