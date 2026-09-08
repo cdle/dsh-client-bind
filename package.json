@@ -1,6 +1,6 @@
 {
   "name": "dsh-client-bind",
-  "version": "1.3.0",
+  "version": "1.2.0",
   "description": "Token-gated conversation-level machine binding for DeepSeek Harness web. First-step injection covers the bound machine plus a roster of every other configured machine. Entry URLs carry ?token=<deployment token>&ssh=<sshAlias>; the plugin authenticates the visit by token, resolves the machine by ssh alias, and injects a deterministic binding notice at the first agent step — strict matching, no IP guessing. Ships a Plugins-settings card (machines CRUD, per-machine agent notes, public-key listing from ~/.ssh for one-click copy) and self-hosts the visit beacon via an index script injection. · 令牌门禁的对话级机器绑定：?token=鉴权 + machine=ssh 别名绑定，配置界面管理机器/公钥/说明，免打补丁可独立发布。",
   "type": "module",
   "main": "lib/index.js",
@@ -25,8 +25,7 @@
     "lib",
     "dist",
     "cordis.patch.yml",
-    "README.md",
-    "gate"
+    "README.md"
   ],
   "exports": {
     ".": "./lib/index.js",
